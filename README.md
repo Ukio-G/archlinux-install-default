@@ -2,7 +2,7 @@
 
 Script that automates routine installation steps.
 
-## Main set of installed packages
+## Main set of installed packages:
 
 - wm: i3wm + i3blocks + i3blocks-contrib (https://github.com/vivien/i3blocks-contrib) + rofi
 - terminal emulator: rxvt-unicode + guake
@@ -14,13 +14,13 @@ Script that automates routine installation steps.
 - network managers and utilites: netctl + iwd + wpa_supplicant + openssh + openvpn
 - develop: vim + gcc + make + git
 
-## Requirements and limitations
+## Requirements and limitations:
 
 - Only one disk device using
 - To change username you should change ```create_filesystem.sh```
 - Dick device name should be ```/dev/sd[a-z]``` or ```/dev/nvme[0-9]```
 
-## Сonfiguration out of the box
+## Сonfiguration out of the box:
 
 See https://github.com/Ukio-G/dotfile
 
@@ -32,3 +32,7 @@ See https://github.com/Ukio-G/dotfile
 - Ability to specify username (not only ukio)
 - Fix font in terminal (Prompt ~ display as a)
 - Compilation kernel after installation, based on devices set. 
+
+## Thanks:
+
+- https://gist.github.com/histrio (https://gist.github.com/histrio/aed2b26c43b5382bb169)
