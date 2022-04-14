@@ -36,8 +36,8 @@ mkfs.ext4 -F $device_install_to"2"
 mkswap $device_install_to"3"
 
 mount $device_install_to"2" /mnt
-mkdir /mnt/boot
-mount $device_install_to"1" /mnt/boot 
+mkdir -p /mnt/boot/efi
+mount $device_install_to"1" /mnt/boot/efi
 
 pacman -Sy
 pacman -S --noconfirm --needed --noprogressbar --quiet reflector
@@ -46,8 +46,6 @@ reflector -l 3 --sort rate --save /etc/pacman.d/mirrorlist
 pacstrap /mnt $pacstrap_packages
 
 genfstab -U -p /mnt >> /mnt/etc/fstab
-
-
 
 
 #### Post install actions
@@ -71,53 +69,54 @@ reflector -l 3 --sort rate --save /etc/pacman.d/mirrorlist
 
 pacman -Syu
 pacman -S  --noconfirm --needed archlinux-keyring sudo base-devel
-pacman -S  --noconfirm --needed zsh \
-								git \
-								gcc \
-								make \
-								vim \
-								iwd \
-								dhcpcd \
-								wget \
-								wpa_supplicant \
-								reflector \
-								sudo \
-								thunar \
-								i3-wm \
-								rofi \
-								xterm \
-								unzip \
-								openssh \
-								openvpn \
-								xorg-server \
-								thunar-archive-plugin \
-								thunar-volman \
-								rxvt-unicode \
-								htop \
-								netctl \
-								zip \
-								ttf-hack \
-								i3blocks \
-								xorg-xrdb \
-								xbindkeys \
-								zsh-syntax-highlighting \
-								zsh-autosuggestions \
-								xmlto \
-								kmod \
-								inetutils \
-								bc \
-								libelf \
-								feh \
-								xorg-xinit \
-								guake \
-								lxrandr \
-								ttf-font-awesome \
-								telegram-desktop \
-								audacious \
-								audacious-plugins \
-								alsa-lib \
-								alsa-utils \
-								chromium 
+
+# pacman -S  --noconfirm --needed zsh \
+# 								git \
+# 								gcc \
+# 								make \
+# 								vim \
+# 								iwd \
+# 								dhcpcd \
+# 								wget \
+# 								wpa_supplicant \
+# 								reflector \
+# 								sudo \
+# 								thunar \
+# 								i3-wm \
+# 								rofi \
+# 								xterm \
+# 								unzip \
+# 								openssh \
+# 								openvpn \
+# 								xorg-server \
+# 								thunar-archive-plugin \
+# 								thunar-volman \
+# 								rxvt-unicode \
+# 								htop \
+# 								netctl \
+# 								zip \
+# 								ttf-hack \
+# 								i3blocks \
+# 								xorg-xrdb \
+# 								xbindkeys \
+# 								zsh-syntax-highlighting \
+# 								zsh-autosuggestions \
+# 								xmlto \
+# 								kmod \
+# 								inetutils \
+# 								bc \
+# 								libelf \
+# 								feh \
+# 								xorg-xinit \
+# 								guake \
+# 								lxrandr \
+# 								ttf-font-awesome \
+# 								telegram-desktop \
+# 								audacious \
+# 								audacious-plugins \
+# 								alsa-lib \
+# 								alsa-utils \
+# 								chromium 
 
 
 useradd -m -g users -G audio,wheel -s \`which zsh\` ukio
@@ -128,22 +127,10 @@ echo ukio_host > /etc/hostname
 echo ukio:123 | chpasswd
 echo root:456 | chpasswd
 
-pacman -S --noconfirm --needed refind
+pacman -S --noconfirm --needed grub intel-ucode
 
-refind-install
-
-pacman -S --noconfirm --needed intel-ucode
-
-sed -i 's/loader[ \s\t]*\/boot/loader /g' /boot/EFI/refind/refind.conf
-sed -i '/initrd[ \s\t]*\/boot\/initramfs.*./d' /boot/EFI/refind/refind.conf
 
 root_uuid=\`cat /etc/fstab | grep -E 'UUID=.*/ ' | gawk 'match(\$0,/UUID=(.*)\s*\/ /,a) {print a[1]}'\`
-
-sed -i "s/options[ \s\t]* \"root=PARTUUID.*./options \"root=UUID=\$root_uuid rw add_efi_memmap initrd=initramfs-linux.img initrd=intel-ucode.img\"/g" /boot/EFI/refind/refind.conf
-
-LINENR=\$(cat /boot/EFI/refind/refind.conf | grep -n -P '^[\t\s]*disabled' | head -2 | tail -1 | cut -d: -f1)
-cat /boot/EFI/refind/refind.conf | sed \${LINENR}' s/disabled//' > refind.conf 
-mv refind.conf /boot/EFI/refind/refind.conf
 
 
 sed -i 's/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g' /etc/locale.gen
@@ -152,17 +139,17 @@ chmod 777 /user_setup.sh
 
 
 cd /root
-git clone https://github.com/vivien/i3blocks-contrib
-cd i3blocks-contrib
-chmod -R +x .
+#git clone https://github.com/vivien/i3blocks-contrib
+#cd i3blocks-contrib
+#chmod -R +x .
 
-mkdir /usr/lib/i3blocks
-cp -r * /usr/lib/i3blocks
+#mkdir /usr/lib/i3blocks
+#cp -r * /usr/lib/i3blocks
 
-cd .. && rm -rf i3blocks-contrib
+#cd .. && rm -rf i3blocks-contrib
 
 
-/bin/su -s /bin/bash -c '/user_setup.sh' ukio
+#/bin/su -s /bin/bash -c '/user_setup.sh' ukio
 
 sed -i 's/%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
 sed -i 's/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/g' /etc/sudoers
@@ -207,22 +194,13 @@ ln -s "\$ZSH_CUSTOM/themes/spaceship-prompt/spaceship.zsh-theme" "\$ZSH_CUSTOM/t
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git \${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
 git clone https://github.com/zsh-users/zsh-autosuggestions \${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
 
-
-
-# Kernel compilation
-#cd ~
-#mkdir kernel && cd kernel
-#wget https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.7.13.tar.xz
-#tar -xvf linux-5.7.13.tar.xz
-#cd linux-5.7.13
-
-
 rm install.sh
 
 EOF
 
-arch-chroot /mnt /bin/bash -e -x /second.sh
-rm /mnt/second.sh
+
+# arch-chroot /mnt /bin/bash -e -x /second.sh
+# rm /mnt/second.sh
 
 
 
