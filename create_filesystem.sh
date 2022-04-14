@@ -127,7 +127,7 @@ echo ukio_host > /etc/hostname
 echo ukio:123 | chpasswd
 echo root:456 | chpasswd
 
-pacman -S --noconfirm --needed grub intel-ucode
+pacman -S --noconfirm --needed grub intel-ucode efibootmgr
 
 
 root_uuid=\`cat /etc/fstab | grep -E 'UUID=.*/ ' | gawk 'match(\$0,/UUID=(.*)\s*\/ /,a) {print a[1]}'\`
@@ -199,7 +199,7 @@ rm install.sh
 EOF
 
 
-# arch-chroot /mnt /bin/bash -e -x /second.sh
+arch-chroot /mnt /bin/bash -e -x /second.sh
 # rm /mnt/second.sh
 
 
