@@ -70,53 +70,53 @@ reflector -l 3 --sort rate --save /etc/pacman.d/mirrorlist
 pacman -Syu
 pacman -S  --noconfirm --needed archlinux-keyring sudo base-devel
 
-# pacman -S  --noconfirm --needed zsh \
-# 								git \
-# 								gcc \
-# 								make \
-# 								vim \
-# 								iwd \
-# 								dhcpcd \
-# 								wget \
-# 								wpa_supplicant \
-# 								reflector \
-# 								sudo \
-# 								thunar \
-# 								i3-wm \
-# 								rofi \
-# 								xterm \
-# 								unzip \
-# 								openssh \
-# 								openvpn \
-# 								xorg-server \
-# 								thunar-archive-plugin \
-# 								thunar-volman \
-# 								rxvt-unicode \
-# 								htop \
-# 								netctl \
-# 								zip \
-# 								ttf-hack \
-# 								i3blocks \
-# 								xorg-xrdb \
-# 								xbindkeys \
-# 								zsh-syntax-highlighting \
-# 								zsh-autosuggestions \
-# 								xmlto \
-# 								kmod \
-# 								inetutils \
-# 								bc \
-# 								libelf \
-# 								feh \
-# 								xorg-xinit \
-# 								guake \
-# 								lxrandr \
-# 								ttf-font-awesome \
-# 								telegram-desktop \
-# 								audacious \
-# 								audacious-plugins \
-# 								alsa-lib \
-# 								alsa-utils \
-# 								chromium 
+pacman -S  --noconfirm --needed zsh \
+								git \
+								gcc \
+								make \
+								vim \
+								iwd \
+								dhcpcd \
+								wget \
+								wpa_supplicant \
+								reflector \
+								sudo \
+								thunar \
+								i3-wm \
+								rofi \
+								xterm \
+								unzip \
+								openssh \
+								openvpn \
+								xorg-server \
+								thunar-archive-plugin \
+								thunar-volman \
+								rxvt-unicode \
+								htop \
+								netctl \
+								zip \
+								ttf-hack \
+								i3blocks \
+								xorg-xrdb \
+								xbindkeys \
+								zsh-syntax-highlighting \
+								zsh-autosuggestions \
+								xmlto \
+								kmod \
+								inetutils \
+								bc \
+								libelf \
+								feh \
+								xorg-xinit \
+								guake \
+								lxrandr \
+								ttf-font-awesome \
+								telegram-desktop \
+								audacious \
+								audacious-plugins \
+								alsa-lib \
+								alsa-utils \
+								chromium 
 
 
 useradd -m -g users -G audio,wheel -s \`which zsh\` ukio
@@ -132,30 +132,24 @@ pacman -S --noconfirm --needed grub intel-ucode efibootmgr
 grub-install
 grub-mkconfig -o /boot/grub/grub.cfg
 
-root_uuid=\`cat /etc/fstab | grep -E 'UUID=.*/ ' | gawk 'match(\$0,/UUID=(.*)\s*\/ /,a) {print a[1]}'\`
-
-
 sed -i 's/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g' /etc/locale.gen
 
 chmod 777 /user_setup.sh
 
-
 cd /root
-#git clone https://github.com/vivien/i3blocks-contrib
-#cd i3blocks-contrib
-#chmod -R +x .
+git clone https://github.com/vivien/i3blocks-contrib
+cd i3blocks-contrib
+chmod -R +x .
 
-#mkdir /usr/lib/i3blocks
-#cp -r * /usr/lib/i3blocks
+mkdir /usr/lib/i3blocks
+cp -r * /usr/lib/i3blocks
 
-#cd .. && rm -rf i3blocks-contrib
+cd .. && rm -rf i3blocks-contrib
 
-
-#/bin/su -s /bin/bash -c '/user_setup.sh' ukio
+/bin/su -s /bin/bash -c '/user_setup.sh' ukio
 
 sed -i 's/%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
 sed -i 's/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/g' /etc/sudoers
-
 
 EOF
 
@@ -202,7 +196,7 @@ EOF
 
 
 arch-chroot /mnt /bin/bash -e -x /second.sh
-# rm /mnt/second.sh
+rm /mnt/second.sh
 
 
 
