@@ -129,6 +129,8 @@ echo root:456 | chpasswd
 
 pacman -S --noconfirm --needed grub intel-ucode efibootmgr
 
+grub-install
+grub-mkconfig -o /boot/grub/grub.cfg
 
 root_uuid=\`cat /etc/fstab | grep -E 'UUID=.*/ ' | gawk 'match(\$0,/UUID=(.*)\s*\/ /,a) {print a[1]}'\`
 
