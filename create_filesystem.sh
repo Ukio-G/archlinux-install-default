@@ -1,43 +1,54 @@
 #!/usr/bin/bash
 
-#	Simple disk configuration
-
 efi_filesystem="EF00"
 
 pacstrap_packages="base linux linux-firmware"
 
-regexp_full_device_line='/dev/sd[abcd].*GiB|/dev/nvme[0-9a-z]*.*GiB' 
-regexp_device_name_only='/dev/sd[abcd]|/dev/nvme[0-9a-z]*'
-regexp_device_space='[0-9]'
+device_install_to="nvme0n1"
+boot_part="nvme0n1p5"
+root_part="nvme0n1p6"
+create_gpt_table=0
 
-if [[ $device_install_to == "" ]]; then
-	device_install_to=`fdisk --list | grep -E -o "$regexp_full_device_line" | grep -E -o "$regexp_device_name_only"`
-fi
 
-echo "Creating table for $device_install_to"
+#TODO: Add manual confirmation for each disk operaton
+function prepare_filesystem() {
+    if [[ $create_gpt_table -eq 1 ]]; then
+        echo "Creating table for $device_install_to"
+        sfdisk -o $device_install_to > /dev/null
+        echo "label: gpt" | sfdisk $device_install_to
+        sleep 2
+    fi
 
-sfdisk -o $device_install_to > /dev/null
+	echo "Prepare filesystem on $device_install_to"
+	last_sector=parted $device_install_to -s 'unit s print' | tail -2 | grep -E -o '[0-9]*s' | sed -n 2,2p | grep -E -o '[0-9]*'
+	echo "Last avalible sector: $last_sector"
 
-echo "label: gpt" | sfdisk $device_install_to
+	# Boot
+	boot_start_sector=`echo "$last_sector + 1" | bc`
+	boot_end_sector=`echo "$boot_start_sector + (2048 * 512) - 1" | bc`
+	echo "Boot start sector: $boot_start_sector; end sector: $boot_end_sector"
+	parted $boot_part -s mkpart ESP fat32 $boot_start_sector $boot_end_sector
+	#parted $device_install_to -s set 1 boot on
+	
+	# Root
+	root_start_sector=`echo "$boot_end_sector + 1" | bc`
+	# TODO: make root size depends on argument script
+	# root_end_sector=`echo "$root_start_sector + (2048 * 512) - 1" | bc`
+	echo "Root start sector: $root_start_sector; end sector: $root_end_sector"
+	parted $root_part -s mkpart primary ext4 $root_start_sector 100%
+	
+	# Format new partitions
+	mkfs.vfat -F32 $boot_part
+	mkfs.ext4 -F $root_part
+}
 
-sleep 2
 
-free_disk_space=`parted $device_install_to print | grep $device_install_to | gawk 'match($0,/: ([0-9]*).*/,a){print a[1]}'`
+function mount_filesystem() {
+	mount $root_part /mnt
+	mkdir /mnt/boot
+	mount $boot_part /mnt/boot 
+}
 
-root_size=`echo "$free_disk_space - 1" | bc`
-
-parted $device_install_to -s mkpart ESP fat32 1M 512MiB
-parted $device_install_to -s mkpart primary ext4 512MiB $root_size"GB"
-parted $device_install_to -s mkpart primary linux-swap $root_size"GB" 100%
-parted $device_install_to -s set 1 boot on
-
-mkfs.vfat -F32 $device_install_to"1"
-mkfs.ext4 -F $device_install_to"2"
-mkswap $device_install_to"3"
-
-mount $device_install_to"2" /mnt
-mkdir /mnt/boot
-mount $device_install_to"1" /mnt/boot 
 
 pacman -Sy
 pacman -S --noconfirm --needed --noprogressbar --quiet reflector
@@ -47,23 +58,19 @@ pacstrap /mnt $pacstrap_packages
 
 genfstab -U -p /mnt >> /mnt/etc/fstab
 
-
-
-
 #### Post install actions
 
 cat <<- EOF > /mnt/second.sh
-
-
-
 
 sed -i 's/#ru_RU.UTF-8 UTF-8/ru_RU.UTF-8 UTF-8/g' /etc/locale.gen
 sed -i 's/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g' /etc/locale.gen
 
 locale-gen
 
-ln -svf /usr/share/zoneinfo/Europe/Moscow /etc/localtime
+ln -svf /usr/share/zoneinfo/Europe/Belgrade /etc/localtime
 hwclock --systohc --utc
+pacman-key --init
+pacman-key --populate
 
 pacman -Sy
 pacman -S --noconfirm --needed --noprogressbar --quiet reflector
@@ -125,31 +132,17 @@ sed -i 's/# %wheel ALL=(ALL) NOPASSWD: ALL/%wheel ALL=(ALL) NOPASSWD: ALL/g' /et
 
 echo ukio_host > /etc/hostname
 
-echo ukio:123 | chpasswd
-echo root:456 | chpasswd
+echo ukio:1 | chpasswd
+echo root:2 | chpasswd
 
-pacman -S --noconfirm --needed refind
-
-refind-install
-
+pacman -S --noconfirm --needed grub efibootmgr
 pacman -S --noconfirm --needed intel-ucode
-
-sed -i 's/loader[ \s\t]*\/boot/loader /g' /boot/EFI/refind/refind.conf
-sed -i '/initrd[ \s\t]*\/boot\/initramfs.*./d' /boot/EFI/refind/refind.conf
-
-root_uuid=\`cat /etc/fstab | grep -E 'UUID=.*/ ' | gawk 'match(\$0,/UUID=(.*)\s*\/ /,a) {print a[1]}'\`
-
-sed -i "s/options[ \s\t]* \"root=PARTUUID.*./options \"root=UUID=\$root_uuid rw add_efi_memmap initrd=initramfs-linux.img initrd=intel-ucode.img\"/g" /boot/EFI/refind/refind.conf
-
-LINENR=\$(cat /boot/EFI/refind/refind.conf | grep -n -P '^[\t\s]*disabled' | head -2 | tail -1 | cut -d: -f1)
-cat /boot/EFI/refind/refind.conf | sed \${LINENR}' s/disabled//' > refind.conf 
-mv refind.conf /boot/EFI/refind/refind.conf
 
 
 sed -i 's/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g' /etc/locale.gen
+locale-gen
 
 chmod 777 /user_setup.sh
-
 
 cd /root
 git clone https://github.com/vivien/i3blocks-contrib
@@ -167,7 +160,8 @@ cd .. && rm -rf i3blocks-contrib
 sed -i 's/%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
 sed -i 's/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/g' /etc/sudoers
 
-
+grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=ArchLinux
+grub-mkconfig -o /boot/grub/grub.cfg
 EOF
 
 
@@ -200,21 +194,12 @@ sh ./install.sh
 
 sleep 1
 
-git clone https://github.com/denysdovhan/spaceship-prompt.git "\$ZSH_CUSTOM/themes/spaceship-prompt"
+# git clone https://github.com/denysdovhan/spaceship-prompt.git "\$ZSH_CUSTOM/themes/spaceship-prompt"
 
-ln -s "\$ZSH_CUSTOM/themes/spaceship-prompt/spaceship.zsh-theme" "\$ZSH_CUSTOM/themes/spaceship.zsh-theme"
+# ln -s "\$ZSH_CUSTOM/themes/spaceship-prompt/spaceship.zsh-theme" "\$ZSH_CUSTOM/themes/spaceship.zsh-theme"
 
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git \${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
 git clone https://github.com/zsh-users/zsh-autosuggestions \${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
-
-
-
-# Kernel compilation
-#cd ~
-#mkdir kernel && cd kernel
-#wget https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.7.13.tar.xz
-#tar -xvf linux-5.7.13.tar.xz
-#cd linux-5.7.13
 
 
 rm install.sh
@@ -224,6 +209,7 @@ EOF
 arch-chroot /mnt /bin/bash -e -x /second.sh
 rm /mnt/second.sh
 
-
+echo "Umounting /mnt..."
+umount -R /mnt
 
 #### End of post-configuration and reboot
