@@ -1,14 +1,11 @@
 #!/usr/bin/bash
 
 efi_filesystem="EF00"
-
-pacstrap_packages="base linux linux-firmware"
-
-device_install_to="nvme0n1"
-boot_part="nvme0n1p5"
-root_part="nvme0n1p6"
-create_gpt_table=0
-
+device_install_to="/dev/sda"
+boot_part="/dev/sda1"
+root_part="/dev/sda2"
+create_gpt_table=1
+use_all_disk=1
 
 #TODO: Add manual confirmation for each disk operaton
 function prepare_filesystem() {
@@ -19,23 +16,34 @@ function prepare_filesystem() {
         sleep 2
     fi
 
+    last_sector='100500'
+    if [[ $use_all_disk -eq 1 ]]; then
+	last_sector='2048' # 2048 sector - closest location from beggining, which parted able to operate
+    else
 	echo "Prepare filesystem on $device_install_to"
-	last_sector=parted $device_install_to -s 'unit s print' | tail -2 | grep -E -o '[0-9]*s' | sed -n 2,2p | grep -E -o '[0-9]*'
-	echo "Last avalible sector: $last_sector"
+	last_sector=$(parted $device_install_to -s 'unit s print' | tail -2 | grep -E -o '[0-9]*s' | sed -n 2,2p | grep -E -o '[0-9]*')
+    fi
 
+	echo "Last avalible sector: $last_sector"
 	# Boot
-	boot_start_sector=`echo "$last_sector + 1" | bc`
-	boot_end_sector=`echo "$boot_start_sector + (2048 * 512) - 1" | bc`
+	if [[ $last_sector -gt 2048 ]]; then
+		boot_start_sector=`echo "$last_sector + 1" | bc`
+		boot_end_sector=`echo "$boot_start_sector + (2048 * 512) - 1" | bc`
+	else 
+		boot_start_sector=`echo "$last_sector" | bc`
+		boot_end_sector=`echo "$boot_start_sector + (2048 * 512)" | bc`
+	fi
+
 	echo "Boot start sector: $boot_start_sector; end sector: $boot_end_sector"
-	parted $boot_part -s mkpart ESP fat32 $boot_start_sector $boot_end_sector
+	parted $device_install_to -s mkpart ESP fat32 "$boot_start_sector"s "$boot_end_sector"s
 	#parted $device_install_to -s set 1 boot on
 	
 	# Root
-	root_start_sector=`echo "$boot_end_sector + 1" | bc`
+	root_start_sector=`echo "$boot_end_sector + 2048" | bc`s
 	# TODO: make root size depends on argument script
 	# root_end_sector=`echo "$root_start_sector + (2048 * 512) - 1" | bc`
-	echo "Root start sector: $root_start_sector; end sector: $root_end_sector"
-	parted $root_part -s mkpart primary ext4 $root_start_sector 100%
+	echo "Root start sector: $root_start_sector; end sector: 100%" # $root_end_sector"
+	parted $device_install_to -s mkpart primary ext4 "$root_start_sector"s 100%
 	
 	# Format new partitions
 	mkfs.vfat -F32 $boot_part
@@ -49,17 +57,17 @@ function mount_filesystem() {
 	mount $boot_part /mnt/boot 
 }
 
-
-pacman -Sy
-pacman -S --noconfirm --needed --noprogressbar --quiet reflector
-reflector -l 3 --sort rate --save /etc/pacman.d/mirrorlist
-
-pacstrap /mnt $pacstrap_packages
-
-genfstab -U -p /mnt >> /mnt/etc/fstab
+function install_basesystem() {
+	pacman -Sy
+	pacman -S --noconfirm --needed --noprogressbar --quiet reflector
+	reflector -l 3 --sort rate --save /etc/pacman.d/mirrorlist
+	pacstrap -K /mnt base linux linux-firmware
+	genfstab -U -p /mnt >> /mnt/etc/fstab
+}
 
 #### Post install actions
 
+function generate_postinstall_script() {
 cat <<- EOF > /mnt/second.sh
 
 sed -i 's/#ru_RU.UTF-8 UTF-8/ru_RU.UTF-8 UTF-8/g' /etc/locale.gen
@@ -206,10 +214,16 @@ rm install.sh
 
 EOF
 
+}
+
+function run_postinstall_script() {
 arch-chroot /mnt /bin/bash -e -x /second.sh
 rm /mnt/second.sh
+}
 
+function unmount_mnt() {
 echo "Umounting /mnt..."
 umount -R /mnt
+}
 
 #### End of post-configuration and reboot
